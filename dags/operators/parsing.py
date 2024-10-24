@@ -5,7 +5,6 @@ from selenium.webdriver.common.by import By
 from airflow.decorators import task
 import pandas as pd
 import logging
-import chromedriver_autoinstaller
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,14 +15,22 @@ logging.basicConfig(
     ]
 )
 
-@task(multiple_outputs=True)
+@task()
 def fetch_arxiv_titles_with_safari(url: str) -> pd.DataFrame:
-    logging.info("-------- open webdriver ----------")
+    logging.info("Open webdriver")
+
+    # Настройка опций для Chrome
+    options = webdriver.ChromeOptions()
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+
     remote_webdriver = 'remote_chromedriver'
     driver = webdriver.Remote(
         command_executor=f'{remote_webdriver}:4444/wd/hub',
+        options=options
     )
-    logging.info("-------- webdriver opened ----------")
+    logging.info("Webdriver opened")
+
     titles_list = []
     links_list = []
     authors_list = []
@@ -45,7 +52,7 @@ def fetch_arxiv_titles_with_safari(url: str) -> pd.DataFrame:
         )
 
         if links_for_abstract:
-            print(f'Count of titles finded: {len(links_for_abstract)}')
+            logging.info(f'Count of titles finded: {len(links_for_abstract)}')
             for i in range(len(titles)):
                 title_text = titles[i].text.strip()
                 link = links_for_abstract[i].get_attribute('href')
@@ -55,7 +62,7 @@ def fetch_arxiv_titles_with_safari(url: str) -> pd.DataFrame:
                 links_list.append(link)
                 authors_list.append(authors_text)
 
-                print(f'Title: {title_text}, Link: {link}\n Authors: {authors_text}')
+                logging.info(f'Title: {title_text}, Link: {link}\n Authors: {authors_text}')
 
                 # Переход по ссылке на Abstract
                 abstract_link = link
@@ -72,17 +79,17 @@ def fetch_arxiv_titles_with_safari(url: str) -> pd.DataFrame:
                     abstract_list.append(abstract_text)
 
                     for abstract in abstracts:
-                        print(f'Abstract: {abstract.text.strip()}')
+                        logging.info(f'Abstract: {abstract.text.strip()}')
 
 
                 except Exception as e:
-                    print(f"Error then load Abstract: {e}")
+                    logging.info(f"Error then load Abstract: {e}")
                 finally:
                     # Возвращаемся на страницу со списком заголовков
                     driver.back()
 
     except Exception as e:
-        print(f"Error occured: {e}")
+        logging.info(f"Error occured: {e}")
 
     finally:
         driver.quit()  # Закрываем драйвер после завершения работы
